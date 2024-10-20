@@ -16,8 +16,8 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include <image_transport/image_transport.h>
-#include <opencv2/highgui/highgui.hpp>
-#include <cv_bridge/cv_bridge.h>
+// #include <opencv2/highgui/highgui.hpp>
+// #include <cv_bridge/cv_bridge.h>
 #include <std_msgs/Bool.h>
 #include <sys/stat.h>
 #include <chrono>
@@ -49,9 +49,9 @@ public:
     void JointReplayCallback(const sensor_msgs::JointStatePtr &msg);
     Eigen::Matrix3d Quat2rotmatrix(double q0, double q1, double q2, double q3);
     float PositionMapping( float haptic_pos, int i);
-    bool saveImage(const sensor_msgs::ImageConstPtr &image_msg);
-    void camera_img_callback(const sensor_msgs::ImageConstPtr &msg);
-    void ReplayImgCallback(const sensor_msgs::ImageConstPtr &msg);
+    // bool saveImage(const sensor_msgs::ImageConstPtr &image_msg);
+    // void camera_img_callback(const sensor_msgs::ImageConstPtr &msg);
+    // void ReplayImgCallback(const sensor_msgs::ImageConstPtr &msg);
     // sensor_msgs::ImageConstPtr
 
     RobotData &rd_;
@@ -133,6 +133,9 @@ public:
     double dhr_, dhp_, dhy_;
     Matrix3d hand_r_rot_desired_past;
     Matrix3d hand_l_rot_desired_past;
+
+    // Eigen::VectorXd Kp_r_;
+    // Eigen::VectorXd Kp_head_;
 
     Eigen::Matrix3d eulerRotation(double roll, double pitch, double yaw) {
     // Yaw, pitch, roll 순서로 회전 행렬 생성

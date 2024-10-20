@@ -26,19 +26,24 @@ CustomController::CustomController(RobotData &rd) : rd_(rd) //, wbc_(dc.wbc_)
     ControlVal_.setZero();
     image_transport::ImageTransport it(nh_cc_);
     camera_flag_pub = nh_cc_.advertise<std_msgs::Bool>("/mujoco_ros_interface/camera/flag", 1);
-    camera_image_sub = it.subscribe("/mujoco_ros_interface/camera/image", 1, &CustomController::camera_img_callback, this);
-    image_replay_sub = it.subscribe("/image_raw", 1, &CustomController::ReplayImgCallback, this);
+    // camera_image_sub = it.subscribe("/mujoco_ros_interface/camera/image", 1, &CustomController::camera_img_callback, this);
+    // image_replay_sub = it.subscribe("/image_raw", 1, &CustomController::ReplayImgCallback, this);
     new_cup_pos_pub = nh_cc_.advertise<geometry_msgs::Point>("/new_cup_pos", 1);
     terminate_pub = nh_cc_.advertise<std_msgs::Bool>("/tocabi/act/terminate", 1);
     r_eef_pos_pub = nh_cc_.advertise<geometry_msgs::PoseStamped>("/r_eef_pos", 1);
     l_eef_pos_pub = nh_cc_.advertise<geometry_msgs::PoseStamped>("/l_eef_pos", 1);
     head_pos_pub = nh_cc_.advertise<geometry_msgs::PoseStamped>("/head_pos", 1);
 
-    std::vector<double> Kp_r(6, 1.0);  // 기본값을 설정 (6개의 0.0)
-    nh_cc_.getParam("/Kp_r", Kp_r);
 
-    std::vector<double> Kp_head(6, 1.0);  // 기본값을 설정 (6개의 0.0)
-    nh_cc_.getParam("/Kp_head", Kp_head);
+    // Kp_head
+    // std::vector<double> Kp_r(6, 1.0);
+    // nh_cc_.getParam("/Kp_r", Kp_r);
+    // Kp_r_ << Kp_r[0], Kp_r[1], Kp_r[2], Kp_r[3], Kp_r[4], Kp_r[5];
+
+    // std::vector<double> Kp_head(6, 1.0);
+    // nh_cc_.getParam("/Kp_head", Kp_head);
+    // Kp_head_ << Kp_head[0], Kp_head[1], Kp_head[2], Kp_head[3], Kp_head[4], Kp_head[5];
+
 
 }
 
@@ -58,6 +63,7 @@ double getRandomPosition(double minValue, double maxValue)
     return distribution(generator);
 }
 
+/*
 bool CustomController::saveImage(const sensor_msgs::ImageConstPtr &image_msg) {
     cv::Mat image;
     // auto t_ = image_msg->header.stamp - init;
@@ -95,6 +101,7 @@ bool CustomController::saveImage(const sensor_msgs::ImageConstPtr &image_msg) {
     return true;
 }
 
+
 void CustomController::camera_img_callback(const sensor_msgs::ImageConstPtr &msg)
 {
     // if(data_collect_start_ || target_received){
@@ -128,7 +135,7 @@ void CustomController::ReplayImgCallback(const sensor_msgs::ImageConstPtr &msg)
         }
     }
 }
-
+*/
 
 void CustomController::computeSlow()
 {
@@ -148,7 +155,7 @@ void CustomController::computeSlow()
     r_eef_pos_msg_.pose.position.y = rd_.link_[Right_Hand].xpos(1);
     r_eef_pos_msg_.pose.position.z = rd_.link_[Right_Hand].xpos(2);
     r_eef_pos_msg_.pose.orientation = tf2::toMsg(r_eef_quat);
-    // eef_pos_pub.publish(r_eef_pos_msg_);
+    r_eef_pos_pub.publish(r_eef_pos_msg_);
 
     DyrosMath::rot2Euler_tf2(rd_.link_[Left_Hand].rotm, lr_, lp_, ly_);
     tf2::Quaternion l_eef_quat;
@@ -170,7 +177,7 @@ void CustomController::computeSlow()
     head_pos_msg_.pose.position.y = rd_.link_[Head].xpos(1);
     head_pos_msg_.pose.position.z = rd_.link_[Head].xpos(2);
     head_pos_msg_.pose.orientation = tf2::toMsg(head_quat);
-    // head_pos_pub.publish(head_pos_msg_);
+    head_pos_pub.publish(head_pos_msg_);
 
 
     if (rd_.tc_.mode == 6) // replay data collect for whole body from sim
@@ -191,8 +198,8 @@ void CustomController::computeSlow()
                 desired_q_[i] = rd_.q_[i];
                 desired_qdot_[i] = 0.0;
             }
-            rd_.pos_kv_v[30] = 15; //25;
-            rd_.pos_kv_v[20] = 15; //25;
+            // rd_.pos_kv_v[30] = 15; //25;
+            // rd_.pos_kv_v[20] = 15; //25;
             replay_image_start = false;
         }
         if (target_received && !first_rec)
@@ -647,7 +654,7 @@ void CustomController::computeSlow()
             rd_.torque_desired[i] = rd_.pos_kp_v[i] * (desired_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (desired_qdot_[i] - rd_.q_dot_[i]);
         }
     }
-    if (rd_.tc_.mode == 9 && des_r_subscribed && false) // only right arm
+    if (rd_.tc_.mode == 8 && des_r_subscribed) // only right arm
     {
         double timeStep = (ros::Time::now() - timer).toSec();
 
@@ -658,19 +665,39 @@ void CustomController::computeSlow()
         static bool init_qp;
 
         static Matrix3d r_rot_hand_init;
+        static Matrix3d r_rot_des_init;
+
+        static Matrix3d l_rot_hand_init;
+        static Matrix3d l_rot_des_init;
+
+        static Matrix3d rot_head_init;
 
         static Vector3d r_pos_hand_init;
+        static Vector3d r_pos_des_init;
 
-        if (rd_.tc_init) //한번만 실행됩니다(gui)
+        static Vector3d l_pos_hand_init;
+        static Vector3d l_pos_des_init;
+
+        static Vector3d pos_head_init;
+
+        if (rd_.tc_init)
         {
             init_qp = true;
 
-            std::cout << "mode 9 init!" << std::endl;
+            std::cout << "mode 8 init!" << std::endl;
             rd_.tc_init = false;
             rd_.link_[COM_id].x_desired = rd_.link_[COM_id].x_init;
 
             r_rot_hand_init = rd_.link_[Right_Hand].rotm;
+            r_rot_des_init  = des_r_orientation_;
+            l_rot_hand_init = rd_.link_[Left_Hand].rotm;
+            l_rot_des_init  = des_l_orientation_;
+            rot_head_init = rd_.link_[Head].rotm;
             r_pos_hand_init = rd_.link_[Right_Hand].xpos;
+            r_pos_des_init= des_r_pos_;
+            l_pos_hand_init = rd_.link_[Left_Hand].xpos;
+            l_pos_des_init= des_l_pos_;
+            pos_head_init = rd_.link_[Head].xpos;
             for(int i = 0; i < MODEL_DOF; i++){
                 desired_q_[i] = rd_.q_[i];
                 desired_qdot_[i] = 0.0;
@@ -680,24 +707,27 @@ void CustomController::computeSlow()
         WBC::SetContact(rd_, rd_.tc_.left_foot, rd_.tc_.right_foot, rd_.tc_.left_hand, rd_.tc_.right_hand);
         if (rd_.tc_.customTaskGain)
         {
-            rd_.link_[Pelvis].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
+            // rd_.link_[Pelvis].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
             rd_.link_[Upper_Body].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
             rd_.link_[Right_Hand].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
         }
+    
 
-
-        rd_.link_[Right_Hand].x_desired = rd_.link_[Right_Hand].x_init;
-        rd_.link_[Right_Hand].x_desired = des_r_pos_;
-        Vector3d hand_r_pos_desired = rd_.link_[Right_Hand].x_desired;
+        // ARM // right ram jac
+        // rd_.link_[Right_Hand].x_desired = des_r_pos_;
+        // Vector3d hand_r_pos_desired = rd_.link_[Right_Hand].x_desired;
+        Vector3d hand_r_pos_desired = des_r_pos_;
         Matrix3d hand_r_rot_desired = des_r_orientation_; 
+        DyrosMath::rot2Euler_tf2(hand_r_rot_desired, drr_, drp_, dry_);
 
         Eigen::MatrixXd J = rd_.link_[Right_Hand].Jac();
         Eigen::MatrixXd J_r_arm = J.block(0, 6+33-8, 6, 8);
         Eigen::VectorXd r_pose_current(6); 
         r_pose_current << rd_.link_[Right_Hand].xpos(0), rd_.link_[Right_Hand].xpos(1), rd_.link_[Right_Hand].xpos(2), rr_, rp_, ry_;
+
         Eigen::VectorXd r_pose_desired(6); 
-        DyrosMath::rot2Euler_tf2(hand_r_rot_desired, drr_, drp_, dry_);
         r_pose_desired << hand_r_pos_desired(0), hand_r_pos_desired(1), hand_r_pos_desired(2), drr_, drp_, dry_;
+
         Eigen::VectorXd r_rot_diff(3); 
         r_rot_diff = DyrosMath::getPhi(rd_.link_[Right_Hand].rotm, hand_r_rot_desired);
 
@@ -709,24 +739,23 @@ void CustomController::computeSlow()
 
         Eigen::MatrixXd JtJ_r= J_r_arm.transpose() * J_r_arm;
 
-        Eigen::VectorXd Kp(6);
-        Kp << 1, 1, 1, 1, 1, 1; 
+        Eigen::VectorXd Kp_r_(6);
+        Kp_r_ << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1; 
 
-        Eigen::MatrixXd dq_r = JtJ_r.ldlt().solve(J_r_arm.transpose() * Kp.cwiseProduct(r_pose_error));
+        Eigen::MatrixXd dq_r = JtJ_r.ldlt().solve(J_r_arm.transpose() * Kp_r_.cwiseProduct(r_pose_error));
         
         for(int i=0; i<8; i++)
         {
             desired_qdot_[MODEL_DOF-8+i] = dq_r(i);
             desired_q_[MODEL_DOF-8+i] += dq_r(i) * 0.0005;
         }
-        
         for (int i = 0; i < MODEL_DOF; i++){
             rd_.torque_desired[i] = rd_.pos_kp_v[i] * (desired_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (desired_qdot_[i] - rd_.q_dot_[i]);
         }
 
         init_qp = false;
     }
-    if (rd_.tc_.mode == 8 && des_r_subscribed && des_head_subscribed) // head + right arm
+    if (rd_.tc_.mode == 8 && des_r_subscribed && des_head_subscribed && false) // head + right arm
     {
         double timeStep = (ros::Time::now() - timer).toSec();
 
@@ -776,18 +805,19 @@ void CustomController::computeSlow()
             }
         }
         
-        WBC::SetContact(rd_, rd_.tc_.left_foot, rd_.tc_.right_foot, rd_.tc_.left_hand, rd_.tc_.right_hand);
-        if (rd_.tc_.customTaskGain)
-        {
-            rd_.link_[Pelvis].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
-            rd_.link_[Upper_Body].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
-            rd_.link_[Right_Hand].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
-        }
+        WBC::SetContact(rd_, 1, 1);
+        // if (rd_.tc_.customTaskGain)
+        // {
+        //     // rd_.link_[Pelvis].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
+        //     rd_.link_[Upper_Body].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
+        //     rd_.link_[Right_Hand].SetGain(rd_.tc_.pos_p, rd_.tc_.pos_d, rd_.tc_.acc_p, rd_.tc_.ang_p, rd_.tc_.ang_d, 1);
+        // }
         
         // HEAD // 머리쪽 자코비안
         // rd_.link_[Head].x_desired = pos_head_init;
-        rd_.link_[Head].x_desired = des_head_pos_;
-        Vector3d head_pos_desired = rd_.link_[Head].x_desired;
+        // rd_.link_[Head].x_desired = des_head_pos_;
+        // Vector3d head_pos_desired = rd_.link_[Head].x_desired;
+        Vector3d head_pos_desired = des_head_pos_;
         // Matrix3d head_rot_desired = rot_head_init;
         Matrix3d head_rot_desired = des_head_orientation_;
         DyrosMath::rot2Euler_tf2(head_rot_desired, dhr_, dhp_, dhy_);
@@ -814,10 +844,10 @@ void CustomController::computeSlow()
 
         Eigen::MatrixXd JtJ_head= J_head.transpose() * J_head;
 
-        Eigen::VectorXd Kp_head(6);
-        Kp_head << 1, 1, 1, 1, 1, 1; 
+        Eigen::VectorXd Kp_head_(6);
+        Kp_head_ << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1; 
 
-        Eigen::MatrixXd dq_head = JtJ_head.ldlt().solve(J_head.transpose() * Kp_head.cwiseProduct(pose_head_error));
+        Eigen::MatrixXd dq_head = JtJ_head.ldlt().solve(J_head.transpose() * Kp_head_.cwiseProduct(pose_head_error));
         
         for(int i=0; i<5; i++)
         {
@@ -826,8 +856,9 @@ void CustomController::computeSlow()
         }
 
         // ARM // right ram jac
-        rd_.link_[Right_Hand].x_desired = des_r_pos_;
-        Vector3d hand_r_pos_desired = rd_.link_[Right_Hand].x_desired;
+        // rd_.link_[Right_Hand].x_desired = des_r_pos_;
+        // Vector3d hand_r_pos_desired = rd_.link_[Right_Hand].x_desired;
+        Vector3d hand_r_pos_desired = des_r_pos_;
         Matrix3d hand_r_rot_desired = des_r_orientation_; 
         DyrosMath::rot2Euler_tf2(hand_r_rot_desired, drr_, drp_, dry_);
 
@@ -850,10 +881,10 @@ void CustomController::computeSlow()
 
         Eigen::MatrixXd JtJ_r= J_r_arm.transpose() * J_r_arm;
 
-        Eigen::VectorXd Kp_r(6);
-        Kp_r << 1, 1, 1, 1, 1, 1; 
+        Eigen::VectorXd Kp_r_(6);
+        Kp_r_ << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1; 
 
-        Eigen::MatrixXd dq_r = JtJ_r.ldlt().solve(J_r_arm.transpose() * Kp_r.cwiseProduct(r_pose_error));
+        Eigen::MatrixXd dq_r = JtJ_r.ldlt().solve(J_r_arm.transpose() * Kp_r_.cwiseProduct(r_pose_error));
         
         for(int i=0; i<8; i++)
         {
