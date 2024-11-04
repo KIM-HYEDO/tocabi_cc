@@ -146,38 +146,44 @@ void CustomController::computeSlow()
     //MODE 9: GUI end-effector pose tracking w/ HQP
     queue_cc_.callAvailable(ros::WallDuration());
 
-    DyrosMath::rot2Euler_tf2(rd_.link_[Right_Hand].rotm, rr_, rp_, ry_);
-    tf2::Quaternion r_eef_quat;
-    r_eef_quat.setRPY(rr_, rp_, ry_);
-    r_eef_pos_msg_.header.stamp = ros::Time::now();
-    r_eef_pos_msg_.header.frame_id = "r_eef_pos";
-    r_eef_pos_msg_.pose.position.x = rd_.link_[Right_Hand].xpos(0);
-    r_eef_pos_msg_.pose.position.y = rd_.link_[Right_Hand].xpos(1);
-    r_eef_pos_msg_.pose.position.z = rd_.link_[Right_Hand].xpos(2);
-    r_eef_pos_msg_.pose.orientation = tf2::toMsg(r_eef_quat);
-    r_eef_pos_pub.publish(r_eef_pos_msg_);
+    cnt_pub++;
 
-    DyrosMath::rot2Euler_tf2(rd_.link_[Left_Hand].rotm, lr_, lp_, ly_);
-    tf2::Quaternion l_eef_quat;
-    l_eef_quat.setRPY(lr_, lp_, ly_);
-    l_eef_pos_msg_.header.stamp = ros::Time::now();
-    l_eef_pos_msg_.header.frame_id = "l_eef_pos";
-    l_eef_pos_msg_.pose.position.x = rd_.link_[Left_Hand].xpos(0);
-    l_eef_pos_msg_.pose.position.y = rd_.link_[Left_Hand].xpos(1);
-    l_eef_pos_msg_.pose.position.z = rd_.link_[Left_Hand].xpos(2);
-    l_eef_pos_msg_.pose.orientation = tf2::toMsg(l_eef_quat);
-    // l_eef_pos_pub.publish(l_eef_pos_msg_);
+    if (cnt_pub%2==0)
+    {
+        DyrosMath::rot2Euler_tf2(rd_.link_[Right_Hand].rotm, rr_, rp_, ry_);
+        tf2::Quaternion r_eef_quat;
+        r_eef_quat.setRPY(rr_, rp_, ry_);
+        r_eef_pos_msg_.header.stamp = ros::Time::now();
+        r_eef_pos_msg_.header.frame_id = "r_eef_pos";
+        r_eef_pos_msg_.pose.position.x = rd_.link_[Right_Hand].xpos(0);
+        r_eef_pos_msg_.pose.position.y = rd_.link_[Right_Hand].xpos(1);
+        r_eef_pos_msg_.pose.position.z = rd_.link_[Right_Hand].xpos(2);
+        r_eef_pos_msg_.pose.orientation = tf2::toMsg(r_eef_quat);
+        r_eef_pos_pub.publish(r_eef_pos_msg_);
 
-    DyrosMath::rot2Euler_tf2(rd_.link_[Head].rotm, hr_, hp_, hy_);
-    tf2::Quaternion head_quat;
-    head_quat.setRPY(hr_, hp_, hy_);
-    head_pos_msg_.header.stamp = ros::Time::now();
-    head_pos_msg_.header.frame_id = "head_pos";
-    head_pos_msg_.pose.position.x = rd_.link_[Head].xpos(0);
-    head_pos_msg_.pose.position.y = rd_.link_[Head].xpos(1);
-    head_pos_msg_.pose.position.z = rd_.link_[Head].xpos(2);
-    head_pos_msg_.pose.orientation = tf2::toMsg(head_quat);
-    head_pos_pub.publish(head_pos_msg_);
+        DyrosMath::rot2Euler_tf2(rd_.link_[Left_Hand].rotm, lr_, lp_, ly_);
+        tf2::Quaternion l_eef_quat;
+        l_eef_quat.setRPY(lr_, lp_, ly_);
+        l_eef_pos_msg_.header.stamp = ros::Time::now();
+        l_eef_pos_msg_.header.frame_id = "l_eef_pos";
+        l_eef_pos_msg_.pose.position.x = rd_.link_[Left_Hand].xpos(0);
+        l_eef_pos_msg_.pose.position.y = rd_.link_[Left_Hand].xpos(1);
+        l_eef_pos_msg_.pose.position.z = rd_.link_[Left_Hand].xpos(2);
+        l_eef_pos_msg_.pose.orientation = tf2::toMsg(l_eef_quat);
+        l_eef_pos_pub.publish(l_eef_pos_msg_);
+
+        DyrosMath::rot2Euler_tf2(rd_.link_[Head].rotm, hr_, hp_, hy_);
+        tf2::Quaternion head_quat;
+        head_quat.setRPY(hr_, hp_, hy_);
+        head_pos_msg_.header.stamp = ros::Time::now();
+        head_pos_msg_.header.frame_id = "head_pos";
+        head_pos_msg_.pose.position.x = rd_.link_[Head].xpos(0);
+        head_pos_msg_.pose.position.y = rd_.link_[Head].xpos(1);
+        head_pos_msg_.pose.position.z = rd_.link_[Head].xpos(2);
+        head_pos_msg_.pose.orientation = tf2::toMsg(head_quat);
+        head_pos_pub.publish(head_pos_msg_);
+    }
+    
 
 
     if (rd_.tc_.mode == 6) // replay data collect for whole body from sim
@@ -654,7 +660,7 @@ void CustomController::computeSlow()
             rd_.torque_desired[i] = rd_.pos_kp_v[i] * (desired_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (desired_qdot_[i] - rd_.q_dot_[i]);
         }
     }
-    if (rd_.tc_.mode == 8 && des_r_subscribed) // only right arm
+    if (rd_.tc_.mode == 8 && des_r_subscribed && false) // only right arm
     {
         double timeStep = (ros::Time::now() - timer).toSec();
 
@@ -755,7 +761,7 @@ void CustomController::computeSlow()
 
         init_qp = false;
     }
-    if (rd_.tc_.mode == 8 && des_r_subscribed && des_head_subscribed && false) // head + right arm
+    if (rd_.tc_.mode == 8 && des_r_subscribed && des_head_subscribed) // head + right arm
     {
         double timeStep = (ros::Time::now() - timer).toSec();
 
@@ -780,6 +786,10 @@ void CustomController::computeSlow()
         static Vector3d l_pos_des_init;
 
         static Vector3d pos_head_init;
+
+        double alpha = 0.1; // 필터 계수 (조정 가능)
+        Eigen::VectorXd filtered_qdot_(MODEL_DOF);
+        Eigen::VectorXd filtered_q_(MODEL_DOF);
 
         if (rd_.tc_init)
         {
@@ -845,7 +855,8 @@ void CustomController::computeSlow()
         Eigen::MatrixXd JtJ_head= J_head.transpose() * J_head;
 
         Eigen::VectorXd Kp_head_(6);
-        Kp_head_ << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1; 
+        // Kp_head_ << 2.0, 2.0, 2.0, 2.0, 2.0, 2.0; 
+        Kp_head_ <<1.5, 2.0, 2.0, 2.0, 2.0, 2.0; 
 
         Eigen::MatrixXd dq_head = JtJ_head.ldlt().solve(J_head.transpose() * Kp_head_.cwiseProduct(pose_head_error));
         
@@ -882,17 +893,55 @@ void CustomController::computeSlow()
         Eigen::MatrixXd JtJ_r= J_r_arm.transpose() * J_r_arm;
 
         Eigen::VectorXd Kp_r_(6);
-        Kp_r_ << 0.1, 0.1, 0.1, 0.1, 0.1, 0.1; 
+        // Kp_r_ << 2.0, 2.0, 2.0, 1.5, 1.5, 1.5; 
+        Kp_r_ << 1.5, 2.0, 2.0, 1.5, 1.5, 1.5; 
 
         Eigen::MatrixXd dq_r = JtJ_r.ldlt().solve(J_r_arm.transpose() * Kp_r_.cwiseProduct(r_pose_error));
+
+       
         
         for(int i=0; i<8; i++)
         {
             desired_qdot_[MODEL_DOF-8+i] = dq_r(i);
             desired_q_[MODEL_DOF-8+i] += dq_r(i) * 0.0005;
         }
+
+        // for (int i = 0; i < MODEL_DOF; i++){
+        //     rd_.torque_desired[i] = rd_.pos_kp_v[i] * (desired_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (desired_qdot_[i] - rd_.q_dot_[i]);
+        // }
+
+        // 필터 초기값 설정
+        for (int i = 0; i < MODEL_DOF; i++) {
+            filtered_qdot_[i] = desired_qdot_[i];
+            filtered_q_[i] = desired_q_[i];
+        }
+
+        // 기존 코드 ...
+        for (int i = 0; i < 8; i++)
+        {
+            desired_qdot_[MODEL_DOF - 8 + i] = dq_r(i);
+            // 필터 적용
+            filtered_qdot_[MODEL_DOF - 8 + i] = alpha * desired_qdot_[MODEL_DOF - 8 + i] + (1 - alpha) * filtered_qdot_[MODEL_DOF - 8 + i];
+            
+            desired_q_[MODEL_DOF - 8 + i] += dq_r(i) * 0.0005;
+            // 필터 적용
+            filtered_q_[MODEL_DOF - 8 + i] = alpha * desired_q_[MODEL_DOF - 8 + i] + (1 - alpha) * filtered_q_[MODEL_DOF - 8 + i];
+        }
+
+        for (int i = 0; i < 5; i++)
+        {
+            desired_qdot_[head_link[i]] = dq_head(i);
+            // 필터 적용
+            filtered_qdot_[head_link[i]] = alpha * desired_qdot_[head_link[i]] + (1 - alpha) * filtered_qdot_[head_link[i]];
+            
+            desired_q_[head_link[i]] += dq_head(i) * 0.0005;
+            // 필터 적용
+            filtered_q_[head_link[i]] = alpha * desired_q_[head_link[i]] + (1 - alpha) * filtered_q_[head_link[i]];
+        }
+
+        // 나머지 코드 ...
         for (int i = 0; i < MODEL_DOF; i++){
-            rd_.torque_desired[i] = rd_.pos_kp_v[i] * (desired_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (desired_qdot_[i] - rd_.q_dot_[i]);
+            rd_.torque_desired[i] = rd_.pos_kp_v[i] * (filtered_q_[i] - rd_.q_[i]) + rd_.pos_kv_v[i] * (filtered_qdot_[i] - rd_.q_dot_[i]);
         }
 
         init_qp = false;
@@ -1241,4 +1290,12 @@ void CustomController::computePlanner()
 void CustomController::copyRobotData(RobotData &rd_l)
 {
     std::memcpy(&rd_cc_, &rd_l, sizeof(RobotData));
+}
+
+Eigen::MatrixXd CustomController::LowPassFilter(const Eigen::MatrixXd &input, const Eigen::MatrixXd &prev_res, const double &sampling_freq, const double &cutoff_freq)
+{
+    double rc = 1. / (cutoff_freq * 2 * M_PI);
+    double dt = 1. / sampling_freq;
+    double a = dt / (rc + dt);
+    return prev_res + a * (input - prev_res);
 }

@@ -24,13 +24,15 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <tf2/LinearMath/Matrix3x3.h>
 // #include <boost/shared_ptr.hpp>
-
+// #define M_PI 3.1415926535
 
 class CustomController
 {
 public:
     CustomController(RobotData &rd);
     Eigen::VectorQd getControl();
+
+    
 
     //void taskCommandToCC(TaskCommand tc_);
     
@@ -49,6 +51,8 @@ public:
     void JointReplayCallback(const sensor_msgs::JointStatePtr &msg);
     Eigen::Matrix3d Quat2rotmatrix(double q0, double q1, double q2, double q3);
     float PositionMapping( float haptic_pos, int i);
+    Eigen::MatrixXd LowPassFilter(const Eigen::MatrixXd &input, const Eigen::MatrixXd &prev_res, const double &sampling_freq, const double &cutoff_freq);
+
     // bool saveImage(const sensor_msgs::ImageConstPtr &image_msg);
     // void camera_img_callback(const sensor_msgs::ImageConstPtr &msg);
     // void ReplayImgCallback(const sensor_msgs::ImageConstPtr &msg);
@@ -56,7 +60,7 @@ public:
 
     RobotData &rd_;
     RobotData rd_cc_;
-
+    
     ros::NodeHandle nh_cc_;
     ros::CallbackQueue queue_cc_;
     ros::Subscriber des_r_pose_sub_;
@@ -123,6 +127,8 @@ public:
     double haptic_force_[3];
 
     float temp = 0.0;
+
+    int cnt_pub=0;
 
     double rr_, rp_, ry_;
     double lr_, lp_, ly_;
